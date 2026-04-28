@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: 9router
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_NAME
+        value: 9router
+

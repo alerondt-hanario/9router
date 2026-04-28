@@ -1,0 +1,22 @@
+{
+  "name": "9router",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Deploy-ready 9router service for Render.",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "NODE_ENV=development node --watch src/server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "render",
+    "node",
+    "router"
+  ],
+  "license": "UNLICENSED"
+}
+
