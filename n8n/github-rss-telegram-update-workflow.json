@@ -1,0 +1,347 @@
+{
+  "name": "9router - GitHub RSS to Telegram Update Button",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "1c5fae18-efc8-4f21-aaec-5b2adf7fbf04",
+      "name": "Check GitHub RSS",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        220,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.GITHUB_RSS_URL || 'https://github.com/decolua/9router/commits/main.atom'}}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "f63898a7-b187-4819-bbf5-14417a0416a3",
+      "name": "Read GitHub Atom Feed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const xml = $input.first().json.body || $input.first().json.data || '';\nconst staticData = $getWorkflowStaticData('global');\nconst seen = new Set(staticData.seenCommitLinks || []);\nconst entries = [...xml.matchAll(/<entry>[\\s\\S]*?<\\/entry>/g)].map((match) => match[0]);\nconst decode = (value = '') => value\n  .replace(/<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>/g, '$1')\n  .replace(/&amp;/g, '&')\n  .replace(/&lt;/g, '<')\n  .replace(/&gt;/g, '>')\n  .replace(/&quot;/g, '\"')\n  .replace(/&#39;/g, \"'\")\n  .trim();\nconst pick = (entry, tag) => decode((entry.match(new RegExp(`<${tag}[^>]*>([\\\\s\\\\S]*?)<\\\\/${tag}>`)) || [])[1] || '');\nconst pickLink = (entry) => decode((entry.match(/<link[^>]*href=\"([^\"]+)\"/i) || [])[1] || '');\nconst fresh = [];\nfor (const entry of entries.slice(0, 5).reverse()) {\n  const link = pickLink(entry);\n  if (!link || seen.has(link)) continue;\n  const title = pick(entry, 'title').replace(/\\s+/g, ' ');\n  const updated = pick(entry, 'updated');\n  const author = pick(entry, 'name');\n  fresh.push({ json: { title, link, updated, author } });\n  seen.add(link);\n}\nstaticData.seenCommitLinks = [...seen].slice(-100);\nreturn fresh;"
+      },
+      "id": "7d1e3c0c-c032-4c99-94ef-06c095839458",
+      "name": "Filter New Commits",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{$env.TELEGRAM_BOT_TOKEN}}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  {\n    chat_id: $env.TELEGRAM_CHAT_ID,\n    message_thread_id: $env.TELEGRAM_MESSAGE_THREAD_ID ? Number($env.TELEGRAM_MESSAGE_THREAD_ID) : undefined,\n    parse_mode: 'HTML',\n    disable_web_page_preview: true,\n    text: '<b>9router GitHub update</b>\\n' +\n      'Commit: ' + $json.title + '\\n' +\n      'Author: ' + ($json.author || 'unknown') + '\\n' +\n      'Time: ' + ($json.updated || 'unknown') + '\\n' +\n      $json.link,\n    reply_markup: {\n      inline_keyboard: [\n        [\n          {\n            text: 'Run n8n update',\n            url: $env.N8N_UPDATE_WEBHOOK_URL\n          }\n        ]\n      ]\n    }\n  }\n}}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "72d1dfb9-7f59-47a9-926d-f12f2d080fdc",
+      "name": "Send Commit to Telegram Topic",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1080,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "path": "9router-run-update",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "c209967b-c9bb-4f2e-bb3a-89d9493b0d11",
+      "name": "Update Button Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        220,
+        440
+      ],
+      "webhookId": "9router-run-update"
+    },
+    {
+      "parameters": {
+        "jsCode": "const secret = $env.N8N_UPDATE_SECRET;\nconst query = $json.query || {};\nif (secret && query.secret !== secret) {\n  return [{ json: { ok: false, statusCode: 403, message: 'Forbidden' } }];\n}\nreturn [{\n  json: {\n    ok: true,\n    requestId: `${Date.now()}`,\n    source: 'telegram-button'\n  }\n}];"
+      },
+      "id": "78392c39-d251-417b-b8fd-74b5e9837d47",
+      "name": "Validate Update Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.ok}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "60679851-69ed-46de-a67f-7c0fe739dd1d",
+      "name": "Is Authorized",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        760,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.github.com/repos/{{$env.GITHUB_OWNER || 'decolua'}}/{{$env.GITHUB_REPO || '9router'}}/actions/workflows/n8n-update.yml/dispatches",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  {\n    ref: $env.GITHUB_BRANCH || 'main',\n    inputs: {\n      source: $json.source,\n      request_id: $json.requestId\n    }\n  }\n}}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "e79c9c73-c722-4e82-8979-b541746f5155",
+      "name": "Dispatch GitHub Update Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1060,
+        360
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_N8N_CREDENTIAL_ID",
+          "name": "GitHub PAT Header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{$env.TELEGRAM_BOT_TOKEN}}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  {\n    chat_id: $env.TELEGRAM_CHAT_ID,\n    message_thread_id: $env.TELEGRAM_MESSAGE_THREAD_ID ? Number($env.TELEGRAM_MESSAGE_THREAD_ID) : undefined,\n    disable_web_page_preview: true,\n    text: '9router update started. GitHub Actions will pull latest state, run tests, push the update status, then report the final result here.'\n  }\n}}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "483837ff-3616-4438-8504-9280e16b469b",
+      "name": "Notify Telegram Update Started",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1360,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, message: '9router update workflow dispatched.' } }}",
+        "options": {}
+      },
+      "id": "009b61da-442f-4797-9d61-9ced29f15eb1",
+      "name": "Webhook Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1640,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{$env.TELEGRAM_BOT_TOKEN}}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  {\n    chat_id: $env.TELEGRAM_CHAT_ID,\n    message_thread_id: $env.TELEGRAM_MESSAGE_THREAD_ID ? Number($env.TELEGRAM_MESSAGE_THREAD_ID) : undefined,\n    text: '9router update request was rejected: invalid n8n update secret.'\n  }\n}}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "73d4503a-62e2-4990-b8b6-aa4c93ea978b",
+      "name": "Notify Telegram Unauthorized",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1060,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 403,
+        "responseBody": "={{ { ok: false, message: 'Forbidden' } }}",
+        "options": {}
+      },
+      "id": "c890bbd0-c694-449f-a297-9d7e58c73e30",
+      "name": "Webhook Forbidden Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1360,
+        560
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Check GitHub RSS": {
+      "main": [
+        [
+          {
+            "node": "Read GitHub Atom Feed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read GitHub Atom Feed": {
+      "main": [
+        [
+          {
+            "node": "Filter New Commits",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter New Commits": {
+      "main": [
+        [
+          {
+            "node": "Send Commit to Telegram Topic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Button Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Update Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Update Request": {
+      "main": [
+        [
+          {
+            "node": "Is Authorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Authorized": {
+      "main": [
+        [
+          {
+            "node": "Dispatch GitHub Update Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify Telegram Unauthorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dispatch GitHub Update Workflow": {
+      "main": [
+        [
+          {
+            "node": "Notify Telegram Update Started",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Telegram Update Started": {
+      "main": [
+        [
+          {
+            "node": "Webhook Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Telegram Unauthorized": {
+      "main": [
+        [
+          {
+            "node": "Webhook Forbidden Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "764b47d8-8445-4ccb-8f8e-811e63284c64",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "id": "9router-github-rss-telegram-update",
+  "tags": []
+}
+

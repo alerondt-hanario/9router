@@ -1,0 +1,111 @@
+name: n8n requested update
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: Request source
+        required: false
+        default: n8n
+      request_id:
+        description: n8n request id
+        required: false
+        default: manual
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Pull latest branch state
+        run: git pull --ff-only origin "${GITHUB_REF_NAME}"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Write update status
+        run: |
+          mkdir -p .github/update-state
+          {
+            echo "last_update_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "source=${{ inputs.source }}"
+            echo "request_id=${{ inputs.request_id }}"
+            echo "commit=${GITHUB_SHA}"
+          } > .github/update-state/last-run.env
+
+      - name: Commit update status
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/update-state/last-run.env
+          if git diff --cached --quiet; then
+            echo "No update status changes to commit."
+          else
+            git commit -m "Record n8n update run"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+      - name: Notify Telegram on success
+        if: success()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_MESSAGE_THREAD_ID: ${{ secrets.TELEGRAM_MESSAGE_THREAD_ID }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "Telegram secrets are not configured; skipping notification."
+            exit 0
+          fi
+
+          payload=$(jq -n \
+            --arg chat_id "$TELEGRAM_CHAT_ID" \
+            --arg thread_id "$TELEGRAM_MESSAGE_THREAD_ID" \
+            --arg text "9router update completed. Tests passed and GitHub was updated. Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            '{chat_id:$chat_id, text:$text, disable_web_page_preview:true}
+             + (if $thread_id == "" then {} else {message_thread_id:($thread_id|tonumber)} end)')
+
+          curl -fsS \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage"
+
+      - name: Notify Telegram on failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_MESSAGE_THREAD_ID: ${{ secrets.TELEGRAM_MESSAGE_THREAD_ID }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "Telegram secrets are not configured; skipping notification."
+            exit 0
+          fi
+
+          payload=$(jq -n \
+            --arg chat_id "$TELEGRAM_CHAT_ID" \
+            --arg thread_id "$TELEGRAM_MESSAGE_THREAD_ID" \
+            --arg text "9router update failed. Check run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            '{chat_id:$chat_id, text:$text, disable_web_page_preview:true}
+             + (if $thread_id == "" then {} else {message_thread_id:($thread_id|tonumber)} end)')
+
+          curl -fsS \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage"
