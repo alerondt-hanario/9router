@@ -1,0 +1,136 @@
+{
+  "name": "9router - Render Redeploy",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "69d14c38-5bf1-4a48-b28c-c914a5356a51",
+      "name": "Manual Deploy",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "id": "4e640550-ea18-4e93-8d8d-3136150a66e7",
+      "name": "Daily Deploy Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.RENDER_DEPLOY_HOOK_URL}}",
+        "sendBody": false,
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "656c0594-f3c8-4ba5-a45c-a4bf5f83281a",
+      "name": "Trigger Render Deploy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        560,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3b68d024-1d59-4e28-94a0-01e6c04b8eba",
+              "name": "app",
+              "type": "string",
+              "value": "9router"
+            },
+            {
+              "id": "bbd29da2-f2d2-4c16-84c0-e641079350dd",
+              "name": "message",
+              "type": "string",
+              "value": "Render deploy hook was triggered."
+            },
+            {
+              "id": "676486b8-7862-4afb-bb0b-1d8d4891af07",
+              "name": "triggeredAt",
+              "type": "string",
+              "value": "={{$now.toISO()}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8831c8c8-1571-4daf-b746-221d71554675",
+      "name": "Deployment Result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        840,
+        280
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Deploy": {
+      "main": [
+        [
+          {
+            "node": "Trigger Render Deploy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Deploy Schedule": {
+      "main": [
+        [
+          {
+            "node": "Trigger Render Deploy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Render Deploy": {
+      "main": [
+        [
+          {
+            "node": "Deployment Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "6fd2249e-9375-4e95-a339-c6eb31789652",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "9router-render-redeploy",
+  "tags": []
+}
+
