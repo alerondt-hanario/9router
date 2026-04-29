@@ -11,6 +11,13 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+Admin API endpoints under `/api/providers` and `/api/tracker` use a bearer token when `ADMIN_API_TOKEN` is set:
+
+```bash
+curl -H "Authorization: Bearer $ADMIN_API_TOKEN" \
+  http://localhost:3000/api/providers
+```
+
 ## Checks
 
 ```bash
@@ -27,7 +34,7 @@ npm install
 npm start
 ```
 
-Use `http://10.0.2.2:3000` for an Android emulator, or the LAN URL of this machine for a physical phone. The app also has a Settings screen where the API URL can be changed.
+Use `http://10.0.2.2:3000` for an Android emulator, or the LAN URL of this machine for a physical phone. The app also has a Settings screen where the API URL and admin token can be changed.
 
 To build an APK, run the **Build mobile APK** GitHub Action or use a local Android toolchain:
 

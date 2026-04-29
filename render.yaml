@@ -11,4 +11,5 @@ services:
         value: production
       - key: APP_NAME
         value: 9router
-
+      - key: ADMIN_API_TOKEN
+        sync: false

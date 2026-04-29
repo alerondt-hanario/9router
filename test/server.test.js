@@ -9,10 +9,13 @@ import { createApp } from "../src/server.js";
 let server;
 let baseUrl;
 let tempDir;
+const authHeaders = {
+  authorization: "Bearer test-admin-token"
+};
 
 before(async () => {
   tempDir = await mkdtemp(join(tmpdir(), "9router-test-"));
-  server = createApp({ dataFile: join(tempDir, "state.json") });
+  server = createApp({ dataFile: join(tempDir, "state.json"), adminToken: "test-admin-token" });
   await new Promise((resolve) => server.listen(0, resolve));
   const address = server.address();
   baseUrl = `http://127.0.0.1:${address.port}`;
@@ -50,8 +53,28 @@ test("returns API status", async () => {
   assert.equal(body.ok, true);
 });
 
-test("returns editable providers without exposing API keys", async () => {
+test("returns CORS headers for preflight requests", async () => {
+  const response = await fetch(`${baseUrl}/api/providers`, {
+    method: "OPTIONS"
+  });
+
+  assert.equal(response.status, 204);
+  assert.equal(response.headers.get("access-control-allow-origin"), "*");
+  assert.match(response.headers.get("access-control-allow-headers"), /authorization/);
+});
+
+test("requires bearer token for admin APIs", async () => {
   const response = await fetch(`${baseUrl}/api/providers`);
+  const body = await response.json();
+
+  assert.equal(response.status, 401);
+  assert.deepEqual(body, { error: "Unauthorized" });
+});
+
+test("returns editable providers without exposing API keys", async () => {
+  const response = await fetch(`${baseUrl}/api/providers`, {
+    headers: authHeaders
+  });
   const body = await response.json();
 
   assert.equal(response.status, 200);
@@ -61,13 +84,15 @@ test("returns editable providers without exposing API keys", async () => {
 });
 
 test("updates providers", async () => {
-  const providersResponse = await fetch(`${baseUrl}/api/providers`);
+  const providersResponse = await fetch(`${baseUrl}/api/providers`, {
+    headers: authHeaders
+  });
   const { providers } = await providersResponse.json();
   const [firstProvider, ...rest] = providers;
 
   const response = await fetch(`${baseUrl}/api/providers`, {
     method: "PUT",
-    headers: { "content-type": "application/json" },
+    headers: { ...authHeaders, "content-type": "application/json" },
     body: JSON.stringify({
       providers: [
         {
@@ -88,7 +113,9 @@ test("updates providers", async () => {
 });
 
 test("returns tracker metrics", async () => {
-  const response = await fetch(`${baseUrl}/api/tracker`);
+  const response = await fetch(`${baseUrl}/api/tracker`, {
+    headers: authHeaders
+  });
   const body = await response.json();
 
   assert.equal(response.status, 200);
@@ -99,7 +126,7 @@ test("returns tracker metrics", async () => {
 test("tests provider connectivity", async () => {
   const response = await fetch(`${baseUrl}/api/providers/test`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { ...authHeaders, "content-type": "application/json" },
     body: JSON.stringify({ id: "anthropic" })
   });
   const body = await response.json();

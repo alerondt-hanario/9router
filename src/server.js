@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, extname, join, normalize } from "node:path";
+import { timingSafeEqual } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const appName = process.env.APP_NAME || "9router";
@@ -84,9 +85,15 @@ const defaultState = {
 
 export function createApp(options = {}) {
   const dataFile = options.dataFile || defaultDataFile;
+  const adminToken = options.adminToken ?? process.env.ADMIN_API_TOKEN ?? "";
 
   return createServer(async (request, response) => {
     const url = new URL(request.url || "/", "http://localhost");
+
+    if (request.method === "OPTIONS") {
+      sendEmpty(response, 204);
+      return;
+    }
 
     if (url.pathname === "/healthz") {
       sendJson(response, 200, { ok: true });
@@ -103,6 +110,8 @@ export function createApp(options = {}) {
     }
 
     if (url.pathname === "/api/providers") {
+      if (!authorizeAdmin(request, response, adminToken)) return;
+
       if (request.method === "GET") {
         const state = await loadState(dataFile);
         sendJson(response, 200, { providers: state.providers.map(maskProvider) });
@@ -131,6 +140,8 @@ export function createApp(options = {}) {
     }
 
     if (url.pathname === "/api/providers/test" && request.method === "POST") {
+      if (!authorizeAdmin(request, response, adminToken)) return;
+
       const body = await readJson(request, response);
       if (!body) return;
 
@@ -154,6 +165,8 @@ export function createApp(options = {}) {
     }
 
     if (url.pathname === "/api/tracker" && request.method === "GET") {
+      if (!authorizeAdmin(request, response, adminToken)) return;
+
       const state = await loadState(dataFile);
       sendJson(response, 200, { tracker: state.tracker });
       return;
@@ -174,6 +187,7 @@ export function createApp(options = {}) {
     try {
       const body = await readFile(filePath);
       response.writeHead(200, {
+        ...corsHeaders(),
         "content-type": contentTypes.get(extname(filePath)) || "application/octet-stream"
       });
 
@@ -186,6 +200,26 @@ export function createApp(options = {}) {
       sendJson(response, 404, { error: "Not found" });
     }
   });
+}
+
+function authorizeAdmin(request, response, adminToken) {
+  if (!adminToken) return true;
+
+  const authorization = request.headers.authorization || "";
+  const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+
+  if (constantTimeEqual(token, adminToken)) return true;
+
+  sendJson(response, 401, { error: "Unauthorized" });
+  return false;
+}
+
+function constantTimeEqual(value, expected) {
+  const valueBuffer = Buffer.from(value);
+  const expectedBuffer = Buffer.from(expected);
+
+  if (valueBuffer.length !== expectedBuffer.length) return false;
+  return timingSafeEqual(valueBuffer, expectedBuffer);
 }
 
 async function loadState(dataFile) {
@@ -271,8 +305,25 @@ function getStaticFilePath(pathname) {
 }
 
 function sendJson(response, statusCode, payload) {
-  response.writeHead(statusCode, { "content-type": "application/json; charset=utf-8" });
+  response.writeHead(statusCode, {
+    ...corsHeaders(),
+    "content-type": "application/json; charset=utf-8"
+  });
   response.end(JSON.stringify(payload));
+}
+
+function sendEmpty(response, statusCode) {
+  response.writeHead(statusCode, corsHeaders());
+  response.end();
+}
+
+function corsHeaders() {
+  return {
+    "access-control-allow-origin": "*",
+    "access-control-allow-methods": "GET,HEAD,POST,PUT,OPTIONS",
+    "access-control-allow-headers": "authorization,content-type",
+    "access-control-max-age": "86400"
+  };
 }
 
 if (fileURLToPath(import.meta.url) === process.argv[1]) {

@@ -22,11 +22,14 @@ const tabs = [
 ];
 
 const initialApiUrl = process.env.EXPO_PUBLIC_9ROUTER_API_URL || "https://ninerouter-admin.onrender.com";
+const initialAdminToken = process.env.EXPO_PUBLIC_9ROUTER_ADMIN_TOKEN || "";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("providers");
   const [apiUrl, setApiUrl] = useState(initialApiUrl);
   const [draftApiUrl, setDraftApiUrl] = useState(initialApiUrl);
+  const [adminToken, setAdminToken] = useState(initialAdminToken);
+  const [draftAdminToken, setDraftAdminToken] = useState(initialAdminToken);
   const [providers, setProviders] = useState([]);
   const [tracker, setTracker] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -43,6 +46,7 @@ export default function App() {
     const response = await fetch(`${apiUrl}${path}`, {
       headers: {
         "content-type": "application/json",
+        ...(adminToken ? { authorization: `Bearer ${adminToken}` } : {}),
         ...(options?.headers || {})
       },
       ...options
@@ -73,7 +77,7 @@ export default function App() {
 
   useEffect(() => {
     loadData();
-  }, [apiUrl]);
+  }, [apiUrl, adminToken]);
 
   async function saveProviders(nextProviders) {
     setProviders(nextProviders);
@@ -154,8 +158,13 @@ export default function App() {
               <SettingsView
                 apiUrl={apiUrl}
                 draftApiUrl={draftApiUrl}
+                draftAdminToken={draftAdminToken}
                 onDraftChange={setDraftApiUrl}
-                onApply={() => setApiUrl(draftApiUrl.replace(/\/$/, ""))}
+                onTokenChange={setDraftAdminToken}
+                onApply={() => {
+                  setApiUrl(draftApiUrl.replace(/\/$/, ""));
+                  setAdminToken(draftAdminToken.trim());
+                }}
                 onReload={() => loadData()}
               />
             ) : null}
@@ -314,7 +323,7 @@ function TrackerView({ tracker, providers }) {
   );
 }
 
-function SettingsView({ apiUrl, draftApiUrl, onDraftChange, onApply, onReload }) {
+function SettingsView({ apiUrl, draftApiUrl, draftAdminToken, onDraftChange, onTokenChange, onApply, onReload }) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Cấu hình app</Text>
@@ -329,6 +338,17 @@ function SettingsView({ apiUrl, draftApiUrl, onDraftChange, onApply, onReload })
           style={styles.input}
         />
         <Text style={styles.settingsHint}>Đang dùng: {apiUrl}</Text>
+        <Text style={styles.inputLabel}>Admin token</Text>
+        <TextInput
+          autoCapitalize="none"
+          autoCorrect={false}
+          secureTextEntry
+          value={draftAdminToken}
+          onChangeText={onTokenChange}
+          placeholder="Bearer token"
+          style={styles.input}
+        />
+        <Text style={styles.settingsHint}>Token dùng cho providers và tracker API.</Text>
         <View style={styles.settingsActions}>
           <Pressable style={styles.secondaryButton} onPress={onReload}>
             <Ionicons name="refresh-outline" size={18} color="#0f172a" />
@@ -715,7 +735,8 @@ const styles = StyleSheet.create({
     color: "#0f172a",
     fontSize: 13,
     fontWeight: "800",
-    marginBottom: 8
+    marginBottom: 8,
+    marginTop: 12
   },
   input: {
     backgroundColor: "#f8fafc",
