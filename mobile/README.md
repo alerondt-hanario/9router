@@ -9,7 +9,7 @@ npm install
 npm start
 ```
 
-Set the API URL in the app Settings screen. On Android emulator, use `http://10.0.2.2:3000`; on a physical phone, use the LAN URL of the machine running 9router.
+By default, the app points to `https://ninerouter-admin.onrender.com`. Set another API URL in the app Settings screen when testing local services. On Android emulator, use `http://10.0.2.2:3000`; on a physical phone, use the LAN URL of the machine running 9router.
 
 ## Build APK
 

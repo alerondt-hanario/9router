@@ -21,7 +21,7 @@ const tabs = [
   { id: "settings", label: "Settings", icon: "settings-outline" }
 ];
 
-const initialApiUrl = process.env.EXPO_PUBLIC_9ROUTER_API_URL || "http://10.0.2.2:3000";
+const initialApiUrl = process.env.EXPO_PUBLIC_9ROUTER_API_URL || "https://ninerouter-admin.onrender.com";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("providers");
