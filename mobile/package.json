@@ -1,0 +1,28 @@
+{
+  "name": "9router-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "prebuild": "expo prebuild",
+    "build:apk": "expo prebuild --platform android --clean && cd android && ./gradlew assembleDebug",
+    "build:apk:eas": "npx eas build --platform android --profile apk",
+    "lint": "npx expo-doctor",
+    "ios": "expo run:ios"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^14.0.4",
+    "expo": "~51.0.39",
+    "expo-font": "~12.0.10",
+    "expo-status-bar": "~1.12.1",
+    "react": "18.2.0",
+    "react-native": "0.74.5",
+    "react-native-safe-area-context": "4.10.5"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "expo-modules-autolinking": "^1.11.3"
+  }
+}

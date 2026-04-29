@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "9router Admin",
+    "slug": "9router-admin",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "splash": {
+      "backgroundColor": "#f6f8fb",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.ninerouter.admin"
+    },
+    "android": {
+      "package": "com.ninerouter.admin",
+      "permissions": [
+        "INTERNET"
+      ]
+    }
+  }
+}
