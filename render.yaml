@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: 9router-live
+    runtime: docker
+    repo: https://github.com/alerondt-hanario/9router
+    plan: starter
+    branch: codex/render-real-9router
+    autoDeploy: true
+    healthCheckPath: /api/health
+    disk:
+      name: 9router-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOSTNAME
+        value: 0.0.0.0
+      - key: DATA_DIR
+        value: /app/data
+      - key: BASE_URL
+        value: https://ninerouter-live.onrender.com
+      - key: NEXT_PUBLIC_BASE_URL
+        value: https://ninerouter-live.onrender.com
+      - key: CLOUD_URL
+        value: https://9router.com
+      - key: NEXT_PUBLIC_CLOUD_URL
+        value: https://9router.com
+      - key: REQUIRE_API_KEY
+        value: true
+      - key: AUTH_COOKIE_SECURE
+        value: true
+      - key: ENABLE_REQUEST_LOGS
+        value: false
+      - key: OBSERVABILITY_ENABLED
+        value: true
+      - key: JWT_SECRET
+        sync: false
+      - key: INITIAL_PASSWORD
+        sync: false
+      - key: API_KEY_SECRET
+        sync: false
+      - key: MACHINE_ID_SALT
+        sync: false
