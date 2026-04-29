@@ -3,14 +3,10 @@ services:
     name: 9router-live
     runtime: docker
     repo: https://github.com/alerondt-hanario/9router
-    plan: starter
+    plan: free
     branch: codex/render-real-9router
     autoDeploy: true
     healthCheckPath: /api/health
-    disk:
-      name: 9router-data
-      mountPath: /app/data
-      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
